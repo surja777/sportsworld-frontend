@@ -27,9 +27,10 @@ button { background:#2563eb; color:white; border:none }
 
 <script>
 let items = [];
+let device = null;
 let printerChar = null;
 
-// ADD ITEM
+/* ADD ITEM */
 function addItem() {
     const val = Number(document.getElementById("price").value);
     if (!val) return alert("Enter amount");
@@ -39,7 +40,7 @@ function addItem() {
     render();
 }
 
-// SHOW ITEMS
+/* SHOW ITEMS */
 function render() {
     let html = "";
     let total = 0;
@@ -53,9 +54,11 @@ function render() {
     document.getElementById("total").innerText = total;
 }
 
-// CONNECT BLUETOOTH
+/* CONNECT BLUETOOTH */
 async function connectPrinter() {
-    const device = await navigator.bluetooth.requestDevice({
+    if (device && device.gatt.connected) return;
+
+    device = await navigator.bluetooth.requestDevice({
         acceptAllDevices: true,
         optionalServices: [0xFFE0]
     });
@@ -63,39 +66,41 @@ async function connectPrinter() {
     const server = await device.gatt.connect();
     const service = await server.getPrimaryService(0xFFE0);
     printerChar = await service.getCharacteristic(0xFFE1);
+
+    alert("Printer connected");
 }
 
-// PRINT BILL
+/* PRINT BILL */
 async function printBill() {
     if (items.length === 0) {
         alert("Add items first");
         return;
     }
 
-    if (!printerChar) {
-        await connectPrinter();
-    }
-
-    let total = items.reduce((a,b)=>a+b,0);
-
-    let bill = "";
-    bill += "--------------------------\n";
-    bill += "        BILL\n";
-    bill += "--------------------------\n\n";
-
-    items.forEach(price => {
-        bill += "                ₹" + price + "\n";
-    });
-
-    bill += "\n--------------------------\n";
-    bill += "TOTAL:          ₹" + total + "\n";
-    bill += "--------------------------\n";
-    bill += "  Thank You!\n\n";
-
-    const encoder = new TextEncoder();
-    const data = encoder.encode(bill);
-
     try {
+        if (!device || !device.gatt.connected) {
+            await connectPrinter();
+        }
+
+        let total = items.reduce((a,b)=>a+b,0);
+
+        let bill = "";
+        bill += "--------------------------\n";
+        bill += "        BILL\n";
+        bill += "--------------------------\n\n";
+
+        items.forEach(p => {
+            bill += "                ₹" + p + "\n";
+        });
+
+        bill += "\n--------------------------\n";
+        bill += "TOTAL:          ₹" + total + "\n";
+        bill += "--------------------------\n";
+        bill += "  Thank You!\n\n";
+
+        const encoder = new TextEncoder();
+        const data = encoder.encode(bill);
+
         await printerChar.writeValue(new Uint8Array([0x1B, 0x40]));
 
         for (let i = 0; i < data.length; i += 40) {
@@ -109,13 +114,13 @@ async function printBill() {
         items = [];
         render();
 
-    } catch (err) {
-        alert("Print failed");
-        console.error(err);
+    } catch (e) {
+        alert("Printer disconnected. Reconnect and try again.");
+        device = null;
     }
 }
 
-// SAVE TO BACKEND
+/* SAVE TO BACKEND */
 async function saveBill() {
     await fetch("https://sportsworld-backend.onrender.com/bills", {
         method: "POST",
