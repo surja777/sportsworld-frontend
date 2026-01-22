@@ -30,7 +30,7 @@ let items = [];
 let device = null;
 let printerChar = null;
 
-/* ADD ITEM */
+// ADD ITEM
 function addItem() {
     const val = Number(document.getElementById("price").value);
     if (!val) return alert("Enter amount");
@@ -40,7 +40,7 @@ function addItem() {
     render();
 }
 
-/* SHOW ITEMS */
+// SHOW ITEMS
 function render() {
     let html = "";
     let total = 0;
@@ -54,10 +54,8 @@ function render() {
     document.getElementById("total").innerText = total;
 }
 
-/* CONNECT BLUETOOTH */
+// CONNECT BLUETOOTH PRINTER
 async function connectPrinter() {
-    if (device && device.gatt.connected) return;
-
     device = await navigator.bluetooth.requestDevice({
         acceptAllDevices: true,
         optionalServices: [0xFFE0]
@@ -66,11 +64,9 @@ async function connectPrinter() {
     const server = await device.gatt.connect();
     const service = await server.getPrimaryService(0xFFE0);
     printerChar = await service.getCharacteristic(0xFFE1);
-
-    alert("Printer connected");
 }
 
-/* PRINT BILL */
+// PRINT BILL
 async function printBill() {
     if (items.length === 0) {
         alert("Add items first");
@@ -101,26 +97,28 @@ async function printBill() {
         const encoder = new TextEncoder();
         const data = encoder.encode(bill);
 
+        // Init printer
         await printerChar.writeValue(new Uint8Array([0x1B, 0x40]));
 
+        // Send data in chunks
         for (let i = 0; i < data.length; i += 40) {
             await printerChar.writeValue(data.slice(i, i + 40));
             await new Promise(r => setTimeout(r, 40));
         }
 
-        alert("Printed Successfully!");
+        alert("Printed successfully!");
 
         saveBill();
         items = [];
         render();
 
     } catch (e) {
-        alert("Printer disconnected. Reconnect and try again.");
+        alert("Printer disconnected. Try again.");
         device = null;
     }
 }
 
-/* SAVE TO BACKEND */
+// SAVE TO BACKEND
 async function saveBill() {
     await fetch("https://sportsworld-backend.onrender.com/bills", {
         method: "POST",
