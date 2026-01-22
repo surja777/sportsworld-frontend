@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sports World Billing</title>
+
+<style>
+body { font-family: Arial; padding: 10px; background:#f2f2f2 }
+input, button { width:100%; padding:12px; margin:6px 0; font-size:18px }
+button { background:#2563eb; color:white; border:none }
+.card { background:#fff; padding:10px; margin:5px 0; border-radius:6px }
+#printArea { display:none; }
+</style>
+</head>
+<body>
+
+<h2>Sports World Billing</h2>
+
+<input id="price" type="number" placeholder="Enter price">
+<button onclick="addItem()">Add Item</button>
+
+<div id="items"></div>
+
+<h3>Total: ₹ <span id="total">0</span></h3>
+
+<button onclick="printBill()">Print Bill</button>
+<button onclick="loadHistory()">History</button>
+
+<hr>
+<div id="history"></div>
+
+<!-- PRINT AREA -->
+<div id="printArea">
+    <h3>SPORTS WORLD</h3>
+    <div id="printItems"></div>
+    <hr>
+    <b>Total: ₹<span id="printTotal"></span></b>
+    <p>Thank you!</p>
+</div>
+
+<script>
+let items = [];
+
+// ADD ITEM
+function addItem() {
+    const val = Number(document.getElementById("price").value);
+    if (!val) return alert("Enter amount");
+
+    items.push(val);
+    document.getElementById("price").value = "";
+    render();
+}
+
+// SHOW ITEMS
+function render() {
+    let html = "";
+    let total = 0;
+
+    items.forEach(i => {
+        total += i;
+        html += `<div class="card">₹${i}</div>`;
+    });
+
+    document.getElementById("items").innerHTML = html;
+    document.getElementById("total").innerText = total;
+}
+
+// PRINT BILL
+function printBill() {
+    if (items.length === 0) {
+        alert("Add items first");
+        return;
+    }
+
+    // Prepare print view
+    let html = "";
+    items.forEach(i => {
+        html += `<div>₹${i}</div>`;
+    });
+
+    document.getElementById("printItems").innerHTML = html;
+    document.getElementById("printTotal").innerText =
+        items.reduce((a,b)=>a+b,0);
+
+    // Print
+    window.print();
+
+    // Save to backend AFTER print
+    saveBill();
+
+    // Reset
+    items = [];
+    render();
+}
+
+// SAVE TO BACKEND
+async function saveBill() {
+    await fetch("https://sportsworld-backend.onrender.com/bills", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            date: new Date(),
+            items: items,
+            total: items.reduce((a,b)=>a+b,0)
+        })
+    });
+}
+
+// LOAD HISTORY
+async function loadHistory() {
+    const res = await fetch("https://sportsworld-backend.onrender.com/bills");
+    const data = await res.json();
+
+    let html = "<h3>Bill History</h3>";
+    data.forEach((b,i)=>{
+        html += `
+        <div class="card">
+            <b>Bill ${i+1}</b><br>
+            Date: ${new Date(b.date).toLocaleString()}<br>
+            Total: ₹${b.total}
+        </div>
+        `;
+    });
+
+    document.getElementById("history").innerHTML = html;
+}
+</script>
+
+</body>
+</html>
